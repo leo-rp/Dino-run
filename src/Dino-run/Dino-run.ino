@@ -115,7 +115,7 @@
     gb.display.print(max_score);
     
     gb.display.cursorX = 60;
-    gb.display.print(randomNumber);    
+    gb.display.print(dino.score);    
     
   }
 
