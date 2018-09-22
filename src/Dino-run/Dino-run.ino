@@ -25,6 +25,7 @@ struct obstacle
   byte width;
   byte height;
   float velocity_x;
+  int sprite;
 };
 
 
@@ -39,17 +40,28 @@ float gravity;
 
 struct player dino;
 struct obstacle enemy;
-long randomNumber;
+
 
 uint16_t dino_bmps[] = {bmp_dino_run_0, bmp_dino_run_1, bmp_dino_idle};
-float cloud_x = 90;
+uint16_t cactus_bmps[] = {bmp_cactus, bmp_cactus2, bmp_cactus3};
+float cloud_x;
+float cloud_y;
+
+byte tempo = 250;
+byte note = 0;
 
 void setup() {
   gb.begin();
-  gb.setFrameRate(20);
+  gb.setFrameRate(10);
   randomSeed(analogRead(A4));    
-  gb.titleScreen(F("Di-no-connection"), mico);  
+  gb.titleScreen(F("Di-no-connection"));  
   gb.battery.show = false;
+  //gb.display.persistence = false;
+  gameTitle();
+
+ //sound test
+ 
+
 }
 
 
@@ -70,9 +82,11 @@ void gameTitle() {
   enemy.width = 8;
   enemy.height = 17;
   enemy.velocity_x = 4;
+  enemy.sprite = 0;
 
   gravity = 1.3;
-  cloud_x = 90;
+  cloud_x = 120;
+  cloud_y = 2;
 
   gameState = 1;  
 }
@@ -81,7 +95,7 @@ void gameTitle() {
 void gamePlay() {
   dino.score++;
   enemy.x -= enemy.velocity_x; 
-  cloud_x -= 0.3;
+  
   /* dino gravity */
 
   if (dino.y < 13) {
@@ -101,14 +115,16 @@ void gamePlay() {
   
   animation();
   collision();
+  
 
 
-  if (gb.buttons.pressed(BTN_B) || gb.buttons.held(BTN_B, 2) || gb.buttons.pressed(BTN_A) || gb.buttons.held(BTN_A, 2)) {
+  if (gb.buttons.pressed(BTN_B) || gb.buttons.pressed(BTN_A)) {
     jump();
   }
 
   if (gb.buttons.pressed(BTN_C)){
     gameState = 2;
+    gb.sound.playTick();
   }
 
   
@@ -119,11 +135,13 @@ void gamePlay() {
 
 void gamePause() {
   gb.display.cursorX = 20;
-  gb.display.cursorY = 30;
+  gb.display.cursorY = 20;
   gb.display.print(F("Game Paused"));
-
+  
   if (gb.buttons.pressed(BTN_C)) {
-      gameState = 1;      
+      gameState = 1;
+      gb.sound.playTick();     
+      
   }
 }
 
@@ -143,8 +161,17 @@ void gameOver() {
 }
 
 
+void music(){
+  if (note < 3 && gameState == 1) {
+    gb.sound.playNote(notes[note],notes[note+1]*tempo,0);
+    note += 2;
+  } else{
+    note = 0;
+  }       
+}
+
 void loop() {
-  if (gb.update()) {   
+  if (gb.update()) {       
     draw();
     switch (gameState) {      
       case 0: 
@@ -166,20 +193,23 @@ void loop() {
 
 
 void collision() {
-  if (gb.collideBitmapBitmap(dino.x, dino.y - dino.height, dino_bmps[current], enemy.x, enemy.y, bmp_cactus)) {
+  
+  if (gb.collideBitmapBitmap(dino.x, dino.y - dino.height, dino_bmps[current], enemy.x, enemy.y, cactus_bmps[enemy.sprite])) {
     gb.sound.playTick();
     gameState = 3;
   }
 
-  if (cloud_x < -20 ) {
-    cloud_x = random(90, 160);
-  }
-
-  if (enemy.x < -9 ) {
-    randomNumber = random(84, 160);
-    enemy.x = randomNumber;
+  if(enemy.x < 0){
+    int outScreen;
+    outScreen = pgm_read_byte(cactus_bmps[enemy.sprite]);
+    outScreen *= -1;
+    if (enemy.x < outScreen ) {    
+      enemy.x = random(84, 160);
+      enemy.sprite = random(0, 3);
+    }
   }
 }
+
 
 
 void animation() {
@@ -202,15 +232,28 @@ void draw() {
   
   /*gb.display.fillRect(0,0,84,84);
     gb.display.setColor(WHITE, BLACK);*/  
-  gb.display.drawBitmap(enemy.x, enemy.y, bmp_cactus);
-  //gb.display.drawLine(0, 42, LCDWIDTH, 42);
-  gb.display.drawBitmap(cloud_x, 12, bmp_cloud);
+  
+  gb.display.drawBitmap(enemy.x, enemy.y, cactus_bmps[enemy.sprite]);
+  gb.display.drawLine(0, 42, LCDWIDTH, 42);
+  
   gb.display.print(dino.score);
   gb.display.cursorX = 60;
   gb.display.print(F("Hi"));
   gb.display.print(max_score);
+  cloud();
+  music();
+  
 }
 
+void cloud(){
+  cloud_x -= 0.3;  
+  
+  if (cloud_x < -20 ) {
+    cloud_x = random(90, 160);
+    cloud_y = random(0, 30);
+  }
+  gb.display.drawBitmap(cloud_x, cloud_y, bmp_cloud);  
+}
 
 
 void jump() {
